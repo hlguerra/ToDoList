@@ -1,9 +1,27 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    match /lists/{listId} {
+      allow read, update, delete: if request.auth != null &&
+        (request.auth.uid == resource.data.ownerId ||
+         request.auth.uid in resource.data.sharedWith);
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.ownerId;
+    }
+
+    match /tasks/{taskId} {
+      allow read, update, delete: if request.auth != null &&
+        isListMember(resource.data.listId);
+
+      allow create: if request.auth != null &&
+        isListMember(request.resource.data.listId);
+
+      function isListMember(listId) {
+        let list = get(/databases/$(database)/documents/lists/$(listId)).data;
+        return request.auth.uid == list.ownerId || request.auth.uid in list.sharedWith;
+      }
     }
   }
 }
